@@ -1,108 +1,113 @@
-import galleryItems from "./app.js";
+ // Создание и рендер разметки по массиву данных и предоставленному шаблону.
+  // Реализация делегирования на галерее ul.js-gallery и получение url большого изображения.
+  // Открытие модального окна по клику на элементе галереи.
+  // Подмена значения атрибута src элемента img.lightbox__image.
+  // Закрытие модального окна по клику на кнопку button[data-action="close-lightbox"].
+  // Очистка значения атрибута src элемента img.lightbox__image. Это необходимо для того,
+  // чтобы при следующем открытии модального окна, пока грузится изображение,
+  //мы не видели предыдущее.
+  //  Закрытие модального окна по клику на div.lightbox__overlay.
+  // Закрытие модального окна по нажатию клавиши ESC.
+  // Пролистывание изображений галереи в открытом модальном окне клавишами "влево" и "вправо".
 
-//1
+import galleryItems from './app.js';
+const galleryEl = document.querySelector('.js-gallery');
+const cardsMarkup = createImgCardsMarkup(galleryItems);
 
-const galleryImages = document.querySelector('.js-gallery');
-function create(images) {
-  return images.map(({preview,original,description}) =>
-  {
-    return `<li class="gallery__item">
-  <a
-    class="gallery__link"
-    href="#"
-  >
-    <img
-      class="gallery__image"
-      src="${preview}"
-      data-source="${original}"
-      alt="${description}"
-    />
-  </a>
-</li>`
-  }).join('') 
-};
-const imagesMarkup = create(galleryItems);
-galleryImages.insertAdjacentHTML("beforeend", imagesMarkup);
-
-//2
-
-galleryImages.addEventListener('click', onImageClick);
-
-const modalImage = document.querySelector('.lightbox__image')
-
-const largeImgLink = document.querySelector('.gallery__link');
-
-const modalOpen = document.querySelector('.lightbox');
-
-const originalImagesArrow = [];
-
-for (const item of galleryItems) {
-  originalImagesArrow.push(item.original);
-};
-
-let idxOfOpenedImage = originalImagesArrow.indexOf(modalImage.src);
-
-function onImageClick(evt) {
-  if (!evt.target.classList.contains('gallery__image')) {
-    return
-  } else {
-    
-// 3
-    
-    modalOpen.classList.add('is-open');
-    
-    //4
-    modalImage.src = evt.target.dataset.source;
-    modalImage.alt = evt.target.alt;
-
-    //7
-
-    window.addEventListener('keydown', onRightKeyClick);
-    window.addEventListener('keydown', onLeftKeyClick);
-
-    onRightKeyClick(evt);
-    onLeftKeyClick(evt);
-  };
+function createImgCardsMarkup(galleryItems) {
+  return galleryItems
+    .map(({ preview, original, description } = {}, index) => {
+      return `<li class="gallery__item">
+      <a
+        class="gallery__link"
+        href=${original}
+      >
+      <img
+        class="gallery__image"
+        src=${preview}
+        data-source=${original}
+        data-index = ${index}
+        alt=${description}
+      />
+    </a>
+  </li>`;
+    })
+    .join('');
 }
 
-function onRightKeyClick(evt) {
-  if (evt.keyCode === 39 && idxOfOpenedImage < originalImagesArrow.length-1) {
-      modalImage.src = originalImagesArrow[idxOfOpenedImage += 1]
-    }
+galleryEl.innerHTML = cardsMarkup;
+
+
+const lightboxEl = document.querySelector('.js-lightbox');
+const lightboxImgEl = document.querySelector('.lightbox__image');
+const closeButton = document.querySelector('[data-action="close-lightbox"]');
+const lightboxOverlay = document.querySelector('.lightbox__overlay');
+
+galleryEl.addEventListener('click', onCardClick);
+lightboxEl.addEventListener('click', onlightboxElClick);
+window.addEventListener('keyup', onKeyboardEvent);
+
+function onCardClick(evt) {
+  evt.preventDefault();
+
+  const ifGalleryImg = evt.target.classList.contains('gallery__image');
+  if (!ifGalleryImg) {
+    return;
+  }
+  openModal(evt.target.dataset.source, evt.target.dataset.index);
+}
+
+function onlightboxElClick(evt) {
+  const ifcloseButton = evt.target === closeButton;
+  const iflightboxOverlay = evt.target === lightboxOverlay;
+
+  if (!ifcloseButton && !iflightboxOverlay) {
+    return;
   }
 
-function onLeftKeyClick(evt) {
-  if (evt.keyCode === 37 && idxOfOpenedImage > 0) {
-      modalImage.src = originalImagesArrow[idxOfOpenedImage -= 1]
-    }
+  closeModal();
 }
-      
-//5
 
-const onCloseBtnClick = document.querySelector('.lightbox__button');
+function onKeyboardEvent(evt) {
+  const ifEsc = evt.code === 'Escape';
+  const ifArrowRight = evt.code === 'ArrowRight';
+  const ifArrowLeft = evt.code === 'ArrowLeft';
 
-onCloseBtnClick.addEventListener('click', closeModal);
+  if (ifEsc) {
+    closeModal(evt);
+  }
 
-const onOverlayClick = document.querySelector('.lightbox__overlay');
+  if (ifArrowRight || ifArrowLeft) {
+    showNextImg(ifArrowRight);
+  }
+}
 
-onOverlayClick.addEventListener('click', closeModal);
-
-window.addEventListener('keydown', closeModalOnEscKeyClick);
+function openModal(src, index) {
+  lightboxEl.classList.add('is-open');
+  lightboxImgEl.setAttribute('data-index', index);
+  lightboxImgEl.src = src;
+}
 
 function closeModal() {
-  modalOpen.classList.remove('is-open');
-  window.removeEventListener('keydown', onRightKeyClick);
-  window.removeEventListener('keydown', onLeftKeyClick);
-
-  //6
-  
-  modalImage.src = "";
-  modalImage.alt = "";
+  lightboxEl.classList.remove('is-open');
+  lightboxImgEl.src = '';
 }
 
-function closeModalOnEscKeyClick(evt) {
-  if (evt.keyCode === 27) {
-    closeModal();
+function showNextImg(toRight) {
+  let index;
+
+  index = toRight
+    ? Number(lightboxImgEl.dataset.index) + 1
+    : Number(lightboxImgEl.dataset.index) - 1;
+
+  if (index < 0) {
+    index = galleryItems.length + index;
   }
-}
 
+  if (index === galleryItems.length) {
+    index = 0;
+  }
+
+  lightboxImgEl.src = galleryItems[index].original;
+  lightboxImgEl.dataset.index = index;
+}
